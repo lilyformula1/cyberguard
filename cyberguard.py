@@ -22,7 +22,25 @@ SUSPICIOUS_APIS = {
     "RegSetValueExA": "Registry Modification",
     "RegSetValueExW": "Registry Modification",
 }
+def extract_strings(file_path, min_length=4):
+    with open(file_path, "rb") as file:
+        data = file.read()
 
+    strings = []
+    current = ""
+
+    for byte in data:
+        if 32 <= byte <= 126:
+            current += chr(byte)
+        else:
+            if len(current) >= min_length:
+                strings.append(current)
+            current = ""
+
+    if len(current) >= min_length:
+        strings.append(current)
+
+    return strings
 
 def calculate_hashes(file_path):
     md5 = hashlib.md5()
@@ -122,3 +140,11 @@ else:
     print(f"SHA256   : {sha256}")
 
     analyze_pe(path)
+    strings = extract_strings(path)
+
+    print("\n=== Strings Analysis ===")
+    print(f"Total strings found: {len(strings)}")
+
+    for string in strings[:50]:
+        print(f"  {string}")
+
