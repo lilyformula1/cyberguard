@@ -1,4 +1,5 @@
 import hashlib
+import math
 from pathlib import Path
 import pefile
 
@@ -38,6 +39,24 @@ SUSPICIOUS_STRING_KEYWORDS = [
     "https://",
     "ftp://",
 ]
+
+def calculate_entropy(data):
+    if not data:
+        return 0.0
+
+    frequency = {}
+
+    for byte in data:
+        frequency[byte] = frequency.get(byte, 0) + 1
+
+    entropy = 0.0
+    data_length = len(data)
+
+    for count in frequency.values():
+        probability = count / data_length
+        entropy -= probability * math.log2(probability)
+
+    return entropy
 
 def extract_strings(file_path, min_length=4):
     with open(file_path, "rb") as file:
@@ -128,15 +147,23 @@ def analyze_pe(file_path):
                             category = SUSPICIOUS_APIS[function_name]
                             suspicious_found.append((function_name, category))
 
-        if suspicious_found:
-            for function_name, category in suspicious_found:
-                print(f"[!] {function_name}")
+                if suspicious_found:
+                 for function_name, category in suspicious_found:
+                  print(f"[!] {function_name}")
                 print(f"    Category: {category}")
         else:
             print("No predefined suspicious API indicators found.")
 
-        pe.close()
+        print("\n=== Section Entropy Analysis ===")
 
+        for section in pe.sections:
+            section_name = section.Name.decode(errors="ignore").rstrip("\x00")
+            section_data = section.get_data()
+            entropy = calculate_entropy(section_data)
+
+            print(f"  {section_name:<8} Entropy: {entropy:.2f}")
+
+        pe.close()
     except pefile.PEFormatError:
         print("\nFile Type    : Not a valid Windows PE file")
 
