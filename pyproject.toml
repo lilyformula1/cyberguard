@@ -1,0 +1,19 @@
+[project]
+name = "cyberguard"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "lilyformula1", email = "lilyformula1@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pefile>=2024.8.26",
+]
+
+[project.scripts]
+cyberguard = "cyberguard:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
