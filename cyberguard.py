@@ -22,6 +22,23 @@ SUSPICIOUS_APIS = {
     "RegSetValueExA": "Registry Modification",
     "RegSetValueExW": "Registry Modification",
 }
+
+SUSPICIOUS_STRING_KEYWORDS = [
+    "powershell",
+    "cmd.exe",
+    "wscript",
+    "cscript",
+    "password",
+    "passwd",
+    "cookie",
+    "appdata",
+    "startup",
+    "runonce",
+    "http://",
+    "https://",
+    "ftp://",
+]
+
 def extract_strings(file_path, min_length=4):
     with open(file_path, "rb") as file:
         data = file.read()
@@ -140,11 +157,26 @@ else:
     print(f"SHA256   : {sha256}")
 
     analyze_pe(path)
+
     strings = extract_strings(path)
 
     print("\n=== Strings Analysis ===")
     print(f"Total strings found: {len(strings)}")
 
-    for string in strings[:50]:
-        print(f"  {string}")
+    interesting_strings = []
 
+    for string in strings:
+        lower_string = string.lower()
+
+        for keyword in SUSPICIOUS_STRING_KEYWORDS:
+            if keyword in lower_string:
+                interesting_strings.append(string)
+                break
+
+    print("\n=== Interesting String Indicators ===")
+
+    if interesting_strings:
+        for string in interesting_strings[:50]:
+            print(f"[!] {string}")
+    else:
+        print("No interesting string indicators found.")
