@@ -2,6 +2,27 @@ import hashlib
 from pathlib import Path
 import pefile
 
+SUSPICIOUS_APIS = {
+    "IsDebuggerPresent": "Anti-Debugging",
+    "CheckRemoteDebuggerPresent": "Anti-Debugging",
+    "VirtualAlloc": "Memory Allocation",
+    "VirtualProtect": "Memory Protection",
+    "WriteProcessMemory": "Process Memory Manipulation",
+    "CreateRemoteThread": "Remote Thread Creation",
+    "OpenProcess": "Process Access",
+    "LoadLibraryA": "Dynamic Loading",
+    "LoadLibraryW": "Dynamic Loading",
+    "LoadLibraryExA": "Dynamic Loading",
+    "LoadLibraryExW": "Dynamic Loading",
+    "WinExec": "Command Execution",
+    "ShellExecuteA": "Command/Shell Execution",
+    "ShellExecuteW": "Command/Shell Execution",
+    "URLDownloadToFileA": "File Download",
+    "URLDownloadToFileW": "File Download",
+    "RegSetValueExA": "Registry Modification",
+    "RegSetValueExW": "Registry Modification",
+}
+
 
 def calculate_hashes(file_path):
     md5 = hashlib.md5()
@@ -55,8 +76,29 @@ def analyze_pe(file_path):
                         print(f"  - {function_name}")
                     else:
                         print(f"  - Ordinal {imp.ordinal}")
+                else:
+                 print("No imports found.")
+
+        print("\n=== Suspicious API Indicators ===")
+
+        suspicious_found = []
+
+        if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
+            for entry in pe.DIRECTORY_ENTRY_IMPORT:
+                for imp in entry.imports:
+                    if imp.name:
+                        function_name = imp.name.decode(errors="ignore")
+
+                        if function_name in SUSPICIOUS_APIS:
+                            category = SUSPICIOUS_APIS[function_name]
+                            suspicious_found.append((function_name, category))
+
+        if suspicious_found:
+            for function_name, category in suspicious_found:
+                print(f"[!] {function_name}")
+                print(f"    Category: {category}")
         else:
-            print("No imports found.")
+            print("No predefined suspicious API indicators found.")
 
         pe.close()
 
