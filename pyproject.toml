@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "customtkinter>=6.0.0",
     "pefile>=2024.8.26",
 ]
 
