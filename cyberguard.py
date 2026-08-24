@@ -57,6 +57,38 @@ def calculate_entropy(data):
         entropy -= probability * math.log2(probability)
 
     return entropy
+def calculate_risk_score(suspicious_apis, suspicious_strings, high_entropy_sections):
+    score = 0
+    reasons = []
+
+    if suspicious_apis:
+        score += min(len(suspicious_apis) * 10, 40)
+        reasons.append(
+            f"{len(suspicious_apis)} suspicious API indicator(s)"
+        )
+
+    if suspicious_strings:
+        score += min(len(suspicious_strings) * 5, 30)
+        reasons.append(
+            f"{len(suspicious_strings)} suspicious string indicator(s)"
+        )
+
+    if high_entropy_sections:
+        score += min(len(high_entropy_sections) * 15, 30)
+        reasons.append(
+            f"{len(high_entropy_sections)} high-entropy section(s)"
+        )
+
+    score = min(score, 100)
+
+    if score >= 70:
+        risk_level = "HIGH"
+    elif score >= 40:
+        risk_level = "MEDIUM"
+    else:
+        risk_level = "LOW"
+
+    return score, risk_level, reasons
 
 def extract_strings(file_path, min_length=4):
     with open(file_path, "rb") as file:
@@ -91,8 +123,7 @@ def calculate_hashes(file_path):
 
     return md5.hexdigest(), sha1.hexdigest(), sha256.hexdigest()
 
-
-def analyze_pe(file_path):
+def analyze_pe(file_path, suspicious_strings):
     try:
         pe = pefile.PE(file_path)
 
@@ -130,8 +161,8 @@ def analyze_pe(file_path):
                         print(f"  - {function_name}")
                     else:
                         print(f"  - Ordinal {imp.ordinal}")
-                else:
-                 print("No imports found.")
+        else:
+            print("No imports found.")
 
         print("\n=== Suspicious API Indicators ===")
 
@@ -145,16 +176,20 @@ def analyze_pe(file_path):
 
                         if function_name in SUSPICIOUS_APIS:
                             category = SUSPICIOUS_APIS[function_name]
-                            suspicious_found.append((function_name, category))
+                            suspicious_found.append(
+                                (function_name, category)
+                            )
 
-                if suspicious_found:
-                 for function_name, category in suspicious_found:
-                  print(f"[!] {function_name}")
+        if suspicious_found:
+            for function_name, category in suspicious_found:
+                print(f"[!] {function_name}")
                 print(f"    Category: {category}")
         else:
             print("No predefined suspicious API indicators found.")
 
         print("\n=== Section Entropy Analysis ===")
+
+        high_entropy_sections = []
 
         for section in pe.sections:
             section_name = section.Name.decode(errors="ignore").rstrip("\x00")
@@ -163,10 +198,32 @@ def analyze_pe(file_path):
 
             print(f"  {section_name:<8} Entropy: {entropy:.2f}")
 
+            if entropy >= 7.0:
+                high_entropy_sections.append(section_name)
+                print("             [!] High entropy indicator")
+
+        score, risk_level, reasons = calculate_risk_score(
+            suspicious_found,
+            suspicious_strings,
+            high_entropy_sections
+        )
+
+        print("\n=== CyberGuard Risk Assessment ===")
+        print(f"Risk Score : {score}/100")
+        print(f"Risk Level : {risk_level}")
+
+        if reasons:
+            print("\nReasons:")
+            for reason in reasons:
+                print(f"  [!] {reason}")
+        else:
+            print("\nReasons:")
+            print("  No significant indicators detected.")
+
         pe.close()
+
     except pefile.PEFormatError:
         print("\nFile Type    : Not a valid Windows PE file")
-
 
 file_path = input("Enter the path of the file to analyze: ")
 path = Path(file_path)
@@ -183,12 +240,7 @@ else:
     print(f"SHA1     : {sha1}")
     print(f"SHA256   : {sha256}")
 
-    analyze_pe(path)
-
     strings = extract_strings(path)
-
-    print("\n=== Strings Analysis ===")
-    print(f"Total strings found: {len(strings)}")
 
     interesting_strings = []
 
@@ -199,6 +251,11 @@ else:
             if keyword in lower_string:
                 interesting_strings.append(string)
                 break
+
+    analyze_pe(path, interesting_strings)
+
+    print("\n=== Strings Analysis ===")
+    print(f"Total strings found: {len(strings)}")
 
     print("\n=== Interesting String Indicators ===")
 
