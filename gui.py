@@ -4,6 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 import re
+import os
 
 
 # ============================================================
@@ -91,11 +92,10 @@ def update_sample_info():
 
 
 # ============================================================
-# RUN ANALYSIS
+# RUN ANALYSIS - FIXED FOR EXE
 # ============================================================
 
 def run_analysis(mode, title):
-
     global last_output
     global last_analysis_title
 
@@ -114,19 +114,55 @@ def run_analysis(mode, title):
     root.update()
 
     try:
-
-        engine = Path(__file__).parent / "cyberguard.py"
-
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(engine),
-                selected_file,
-                mode
-            ],
-            text=True,
-            capture_output=True
-        )
+        # ============================================================
+        # FIX: Check if running as EXE or Python script
+        # ============================================================
+        
+        if getattr(sys, 'frozen', False):
+            # ---------- RUNNING AS EXE ----------
+            # Get the directory where the EXE is located
+            exe_dir = Path(sys.executable).parent
+            
+            # Path to cyberguard.py bundled with the EXE
+            engine_path = exe_dir / "cyberguard.py"
+            
+            # If not found in exe_dir, try current directory
+            if not engine_path.exists():
+                engine_path = Path.cwd() / "cyberguard.py"
+            
+            # If still not found, try the directory where the EXE was built
+            if not engine_path.exists():
+                # This is for when running from dist folder
+                engine_path = Path(__file__).parent / "cyberguard.py"
+            
+            # Use Python executable to run cyberguard.py
+            python_exe = sys.executable
+            
+            result = subprocess.run(
+                [
+                    python_exe,
+                    str(engine_path),
+                    selected_file,
+                    mode
+                ],
+                text=True,
+                capture_output=True
+            )
+            
+        else:
+            # ---------- RUNNING AS PYTHON SCRIPT ----------
+            engine_path = Path(__file__).parent / "cyberguard.py"
+            
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(engine_path),
+                    selected_file,
+                    mode
+                ],
+                text=True,
+                capture_output=True
+            )
 
         output = result.stdout.strip()
 
@@ -149,7 +185,6 @@ def run_analysis(mode, title):
         )
 
     except Exception as error:
-
         status_label.config(
             text="● ANALYSIS FAILED",
             fg=RED
@@ -198,7 +233,6 @@ def run_full_analysis():
 # ============================================================
 
 def update_risk_dashboard(output):
-
     match = re.search(
         r"Risk Score\s*:\s*(\d+)\s*/\s*100",
         output,
@@ -229,11 +263,9 @@ def update_risk_dashboard(output):
     if level == "HIGH":
         risk_color = RED
         status = "HIGH RISK"
-
     elif level == "MEDIUM":
         risk_color = YELLOW
         status = "MEDIUM RISK"
-
     else:
         risk_color = GREEN
         status = "LOW RISK"
@@ -267,7 +299,6 @@ def update_risk_dashboard(output):
 # ============================================================
 
 def show_dashboard():
-
     status_label.config(
         text="● DASHBOARD",
         fg=CYAN
@@ -288,7 +319,6 @@ def show_dashboard():
 # ============================================================
 
 def sidebar_hover(widget, enter=True):
-
     if enter:
         widget.config(
             bg=PANEL_3,
@@ -306,7 +336,6 @@ def sidebar_hover(widget, enter=True):
 # ============================================================
 
 def show_results(output, analysis_title):
-
     results_window = tk.Toplevel(root)
 
     results_window.title(
@@ -326,10 +355,7 @@ def show_results(output, analysis_title):
         bg=BG
     )
 
-    # --------------------------------------------------------
     # HEADER
-    # --------------------------------------------------------
-
     header = tk.Frame(
         results_window,
         bg=BG
@@ -362,10 +388,7 @@ def show_results(output, analysis_title):
         pady=(4, 0)
     )
 
-    # --------------------------------------------------------
     # SAMPLE INFO
-    # --------------------------------------------------------
-
     if selected_file:
         filename = Path(selected_file).name
     else:
@@ -382,10 +405,7 @@ def show_results(output, analysis_title):
         padx=30
     )
 
-    # --------------------------------------------------------
     # RESULTS PANEL
-    # --------------------------------------------------------
-
     result_panel = tk.Frame(
         results_window,
         bg=PANEL,
@@ -400,10 +420,7 @@ def show_results(output, analysis_title):
         pady=18
     )
 
-    # --------------------------------------------------------
     # SCROLLBAR
-    # --------------------------------------------------------
-
     scrollbar = tk.Scrollbar(
         result_panel
     )
@@ -413,10 +430,7 @@ def show_results(output, analysis_title):
         fill="y"
     )
 
-    # --------------------------------------------------------
     # OUTPUT
-    # --------------------------------------------------------
-
     output_box = tk.Text(
         result_panel,
         bg=PANEL_2,
@@ -446,10 +460,7 @@ def show_results(output, analysis_title):
         command=output_box.yview
     )
 
-    # --------------------------------------------------------
     # TEXT STYLES
-    # --------------------------------------------------------
-
     output_box.tag_config(
         "section",
         foreground=CYAN,
@@ -486,10 +497,7 @@ def show_results(output, analysis_title):
         foreground=TEXT
     )
 
-    # --------------------------------------------------------
     # INSERT FORMATTED OUTPUT
-    # --------------------------------------------------------
-
     section_names = [
         "HASH ANALYSIS",
         "STRING ANALYSIS",
@@ -500,11 +508,9 @@ def show_results(output, analysis_title):
     ]
 
     for line in output.splitlines():
-
         stripped = line.strip()
 
         if stripped in section_names:
-
             output_box.insert(
                 "end",
                 f"\n{line}\n",
@@ -512,7 +518,6 @@ def show_results(output, analysis_title):
             )
 
         elif "[!]" in line:
-
             output_box.insert(
                 "end",
                 line + "\n",
@@ -520,7 +525,6 @@ def show_results(output, analysis_title):
             )
 
         elif "Risk Level" in line:
-
             if "HIGH" in line.upper():
                 tag = "warning"
             elif "MEDIUM" in line.upper():
@@ -535,7 +539,6 @@ def show_results(output, analysis_title):
             )
 
         elif "Risk Score" in line:
-
             output_box.insert(
                 "end",
                 line + "\n",
@@ -545,7 +548,6 @@ def show_results(output, analysis_title):
         elif line.startswith("MD5") or \
              line.startswith("SHA1") or \
              line.startswith("SHA256"):
-
             output_box.insert(
                 "end",
                 line + "\n",
@@ -553,7 +555,6 @@ def show_results(output, analysis_title):
             )
 
         elif line.startswith("  ") and ":" in line:
-
             output_box.insert(
                 "end",
                 line + "\n",
@@ -561,7 +562,6 @@ def show_results(output, analysis_title):
             )
 
         else:
-
             output_box.insert(
                 "end",
                 line + "\n",
@@ -572,10 +572,7 @@ def show_results(output, analysis_title):
         state="disabled"
     )
 
-    # --------------------------------------------------------
     # CLOSE BUTTON
-    # --------------------------------------------------------
-
     tk.Button(
         results_window,
         text="CLOSE",
@@ -735,7 +732,6 @@ sidebar_items = [
 
 
 for text, command in sidebar_items:
-
     item = tk.Label(
         sidebar,
         text=text,
@@ -931,7 +927,6 @@ modules = [
 
 
 for i, (icon, title, description, command) in enumerate(modules):
-
     row = i // 3
     column = i % 3
 
@@ -1008,7 +1003,6 @@ for i, (icon, title, description, command) in enumerate(modules):
         title_label,
         description_label
     ):
-
         widget.bind(
             "<Button-1>",
             card_click
@@ -1016,7 +1010,6 @@ for i, (icon, title, description, command) in enumerate(modules):
 
 
 for column in range(3):
-
     cards.grid_columnconfigure(
         column,
         weight=1
@@ -1093,7 +1086,6 @@ risk_status_label.pack(
 
 
 # Risk progress bar
-
 risk_bar_frame = tk.Frame(
     risk_panel,
     bg=PANEL_2,
