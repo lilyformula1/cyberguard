@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CyberBoom – Static Malware Analysis Platform</title>
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <div class="container">
+            <div class="logo">
+                <span class="cyber">CYBER</span><span class="boom">BOOM</span>
+                <span class="tagline">STATIC MALWARE ANALYSIS PLATFORM</span>
+            </div>
+            <div class="nav">
+                <a href="#features">Features</a>
+                <a href="#modules">Modules</a>
+                <a href="#risk">Risk Engine</a>
+                <a href="#install">Install</a>
+                <a href="https://github.com/lilyformula1/cyberguard" target="_blank" class="github-btn">View on GitHub</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="container">
+            <h1>CYBER<span class="boom">BOOM</span></h1>
+            <p class="sub">Static Malware Analysis Platform</p>
+            <p class="desc">Modular static analysis for Windows PE files. Identify suspicious APIs, strings, entropy anomalies, and more.</p>
+            <div class="hero-buttons">
+                <a href="#features" class="btn primary">Explore Features</a>
+                <a href="https://github.com/lilyformula1/cyberguard" target="_blank" class="btn secondary">View Source</a>
+                <a href="https://github.com/lilyformula1/cyberguard/releases" target="_blank" class="btn tertiary">Download for Windows</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Features</h2>
+            <div class="grid">
+                <div class="card">
+                    <h3>PE Analysis</h3>
+                    <p>Architecture, entry point, image base, sections, entropy per section.</p>
+                </div>
+                <div class="card">
+                    <h3>API Detection</h3>
+                    <p>Identifies suspicious Windows APIs like <code>VirtualAlloc</code>, <code>CreateRemoteThread</code>, and debugger checks.</p>
+                </div>
+                <div class="card">
+                    <h3>String Scanner</h3>
+                    <p>Extracts printable strings and flags indicators: URLs, cmd.exe, wscript, registry paths, and more.</p>
+                </div>
+                <div class="card">
+                    <h3>Entropy Analysis</h3>
+                    <p>Calculates section entropy. Flags sections with entropy ≥ 7.0 as potential packing/encryption.</p>
+                </div>
+                <div class="card">
+                    <h3>Hash Analysis</h3>
+                    <p>Generates MD5, SHA1, and SHA256 hashes for file identification and threat intelligence matching.</p>
+                </div>
+                <div class="card">
+                    <h3>Risk Engine</h3>
+                    <p>Heuristic scoring (0–100) with LOW/MEDIUM/HIGH classification. Aggregates indicators for rapid triage.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MODULES -->
+    <section id="modules" class="modules">
+        <div class="container">
+            <h2>Analysis Modules</h2>
+            <div class="module-grid">
+                <div class="module-item"><span class="icon">🧬</span> PE Analysis</div>
+                <div class="module-item"><span class="icon">⚠️</span> API Detection</div>
+                <div class="module-item"><span class="icon">🔤</span> String Scanner</div>
+                <div class="module-item"><span class="icon">📊</span> Entropy</div>
+                <div class="module-item"><span class="icon">🔐</span> Hash Analysis</div>
+                <div class="module-item"><span class="icon">⚡</span> Risk Engine</div>
+            </div>
+            <p class="module-note">Run individual modules independently, or execute the <strong>Full Analysis</strong> pipeline.</p>
+        </div>
+    </section>
+
+    <!-- RISK -->
+    <section id="risk" class="risk">
+        <div class="container">
+            <h2>Risk Scoring</h2>
+            <div class="risk-grid">
+                <div class="risk-card">
+                    <h4>Suspicious APIs</h4>
+                    <p>10 points each (capped at 40)</p>
+                </div>
+                <div class="risk-card">
+                    <h4>Suspicious Strings</h4>
+                    <p>5 points each (capped at 30)</p>
+                </div>
+                <div class="risk-card">
+                    <h4>High Entropy Sections</h4>
+                    <p>15 points each (capped at 30)</p>
+                </div>
+            </div>
+            <div class="risk-levels">
+                <span class="badge high">HIGH ≥ 70</span>
+                <span class="badge medium">MEDIUM 40–69</span>
+                <span class="badge low">LOW &lt; 40</span>
+            </div>
+            <p class="risk-note">Heuristic scoring — not a definitive verdict. Always perform dynamic analysis in a sandbox.</p>
+        </div>
+    </section>
+
+    <!-- INSTALL -->
+    <section id="install" class="install">
+        <div class="container">
+            <h2>Installation</h2>
+            <pre><code>git clone https://github.com/lilyformula1/cyberguard.git
+cd cyberguard
+pip install -r requirements.txt
+python gui.py</code></pre>
+            <p>Or download the <a href="https://github.com/lilyformula1/cyberguard/releases">Windows executable</a> for a portable experience.</p>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 CyberBoom – Static Malware Analysis Platform</p>
+            <p>Built for the Sunbeam Karachi project event.</p>
+            <p><a href="https://github.com/lilyformula1/cyberguard" target="_blank">GitHub Repository</a></p>
+        </div>
+    </footer>
+
+    <!-- SMOOTH SCROLL -->
+    <script>
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
