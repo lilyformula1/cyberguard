@@ -25,78 +25,42 @@ SUSPICIOUS_APIS = {
 }
 
 SUSPICIOUS_STRING_KEYWORDS = [
-    "powershell",
-    "cmd.exe",
-    "wscript",
-    "cscript",
-    "password",
-    "passwd",
-    "cookie",
-    "appdata",
-    "startup",
-    "runonce",
-    "http://",
-    "https://",
-    "ftp://",
+    "powershell", "cmd.exe", "wscript", "cscript", "password", "passwd",
+    "cookie", "appdata", "startup", "runonce", "http://", "https://", "ftp://",
 ]
+
 
 def calculate_entropy(data):
     if not data:
         return 0.0
-
     frequency = {}
-
     for byte in data:
         frequency[byte] = frequency.get(byte, 0) + 1
-
     entropy = 0.0
-    data_length = len(data)
-
+    length = len(data)
     for count in frequency.values():
-        probability = count / data_length
-        entropy -= probability * math.log2(probability)
-
+        p = count / length
+        entropy -= p * math.log2(p)
     return entropy
-def calculate_risk_score(suspicious_apis, suspicious_strings, high_entropy_sections):
-    score = 0
-    reasons = []
 
-    if suspicious_apis:
-        score += min(len(suspicious_apis) * 10, 40)
-        reasons.append(
-            f"{len(suspicious_apis)} suspicious API indicator(s)"
-        )
 
-    if suspicious_strings:
-        score += min(len(suspicious_strings) * 5, 30)
-        reasons.append(
-            f"{len(suspicious_strings)} suspicious string indicator(s)"
-        )
+def calculate_hashes(file_path):
+    md5 = hashlib.md5()
+    sha1 = hashlib.sha1()
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            md5.update(chunk)
+            sha1.update(chunk)
+            sha256.update(chunk)
+    return md5.hexdigest(), sha1.hexdigest(), sha256.hexdigest()
 
-    if high_entropy_sections:
-        score += min(len(high_entropy_sections) * 15, 30)
-        reasons.append(
-            f"{len(high_entropy_sections)} high-entropy section(s)"
-        )
-
-    score = min(score, 100)
-
-    if score >= 70:
-        risk_level = "HIGH"
-    elif score >= 40:
-        risk_level = "MEDIUM"
-    else:
-        risk_level = "LOW"
-
-    return score, risk_level, reasons
 
 def extract_strings(file_path, min_length=4):
-    with open(file_path, "rb") as file:
-        data = file.read()
-
+    with open(file_path, "rb") as f:
+        data = f.read()
     strings = []
     current = ""
-
     for byte in data:
         if 32 <= byte <= 126:
             current += chr(byte)
@@ -104,163 +68,200 @@ def extract_strings(file_path, min_length=4):
             if len(current) >= min_length:
                 strings.append(current)
             current = ""
-
     if len(current) >= min_length:
         strings.append(current)
-
     return strings
 
-def calculate_hashes(file_path):
-    md5 = hashlib.md5()
-    sha1 = hashlib.sha1()
-    sha256 = hashlib.sha256()
 
-    with open(file_path, "rb") as file:
-        while chunk := file.read(8192):
-            md5.update(chunk)
-            sha1.update(chunk)
-            sha256.update(chunk)
-
-    return md5.hexdigest(), sha1.hexdigest(), sha256.hexdigest()
-
-def analyze_pe(file_path, suspicious_strings):
-    try:
-        pe = pefile.PE(file_path)
-
-        machine = pe.FILE_HEADER.Machine
-
-        if machine == 0x8664:
-            architecture = "x64"
-        elif machine == 0x14C:
-            architecture = "x86"
-        else:
-            architecture = f"Unknown (0x{machine:X})"
-
-        print("\n=== PE Analysis ===")
-        print("File Type    : Windows PE")
-        print(f"Architecture : {architecture}")
-        print(f"Entry Point  : 0x{pe.OPTIONAL_HEADER.AddressOfEntryPoint:X}")
-        print(f"Image Base   : 0x{pe.OPTIONAL_HEADER.ImageBase:X}")
-        print(f"Sections     : {len(pe.sections)}")
-
-        print("\nSections:")
-        for section in pe.sections:
-            name = section.Name.decode(errors="ignore").rstrip("\x00")
-            print(f"  {name}")
-
-        print("\n=== Imported DLLs ===")
-
-        if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
-            for entry in pe.DIRECTORY_ENTRY_IMPORT:
-                dll_name = entry.dll.decode(errors="ignore")
-                print(f"\n{dll_name}")
-
-                for imp in entry.imports:
-                    if imp.name:
-                        function_name = imp.name.decode(errors="ignore")
-                        print(f"  - {function_name}")
-                    else:
-                        print(f"  - Ordinal {imp.ordinal}")
-        else:
-            print("No imports found.")
-
-        print("\n=== Suspicious API Indicators ===")
-
-        suspicious_found = []
-
-        if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
-            for entry in pe.DIRECTORY_ENTRY_IMPORT:
-                for imp in entry.imports:
-                    if imp.name:
-                        function_name = imp.name.decode(errors="ignore")
-
-                        if function_name in SUSPICIOUS_APIS:
-                            category = SUSPICIOUS_APIS[function_name]
-                            suspicious_found.append(
-                                (function_name, category)
-                            )
-
-        if suspicious_found:
-            for function_name, category in suspicious_found:
-                print(f"[!] {function_name}")
-                print(f"    Category: {category}")
-        else:
-            print("No predefined suspicious API indicators found.")
-
-        print("\n=== Section Entropy Analysis ===")
-
-        high_entropy_sections = []
-
-        for section in pe.sections:
-            section_name = section.Name.decode(errors="ignore").rstrip("\x00")
-            section_data = section.get_data()
-            entropy = calculate_entropy(section_data)
-
-            print(f"  {section_name:<8} Entropy: {entropy:.2f}")
-
-            if entropy >= 7.0:
-                high_entropy_sections.append(section_name)
-                print("             [!] High entropy indicator")
-
-        score, risk_level, reasons = calculate_risk_score(
-            suspicious_found,
-            suspicious_strings,
-            high_entropy_sections
-        )
-
-        print("\n=== CyberGuard Risk Assessment ===")
-        print(f"Risk Score : {score}/100")
-        print(f"Risk Level : {risk_level}")
-
-        if reasons:
-            print("\nReasons:")
-            for reason in reasons:
-                print(f"  [!] {reason}")
-        else:
-            print("\nReasons:")
-            print("  No significant indicators detected.")
-
-        pe.close()
-
-    except pefile.PEFormatError:
-        print("\nFile Type    : Not a valid Windows PE file")
-
-file_path = input("Enter the path of the file to analyze: ")
-path = Path(file_path)
-
-if not path.is_file():
-    print("File not found.")
-else:
-    md5, sha1, sha256 = calculate_hashes(path)
-
-    print("\n=== CyberGuard File Analysis ===")
-    print(f"File Name : {path.name}")
-    print(f"File Size : {path.stat().st_size} bytes")
-    print(f"MD5      : {md5}")
-    print(f"SHA1     : {sha1}")
-    print(f"SHA256   : {sha256}")
-
-    strings = extract_strings(path)
-
-    interesting_strings = []
-
+def find_suspicious_strings(strings):
+    found = []
     for string in strings:
-        lower_string = string.lower()
+        low = string.lower()
+        if any(keyword in low for keyword in SUSPICIOUS_STRING_KEYWORDS):
+            found.append(string)
+    return found
 
-        for keyword in SUSPICIOUS_STRING_KEYWORDS:
-            if keyword in lower_string:
-                interesting_strings.append(string)
-                break
 
-    analyze_pe(path, interesting_strings)
-
-    print("\n=== Strings Analysis ===")
-    print(f"Total strings found: {len(strings)}")
-
-    print("\n=== Interesting String Indicators ===")
-
-    if interesting_strings:
-        for string in interesting_strings[:50]:
-            print(f"[!] {string}")
+def inspect_pe(file_path):
+    pe = pefile.PE(file_path)
+    machine = pe.FILE_HEADER.Machine
+    if machine == 0x8664:
+        architecture = "x64"
+    elif machine == 0x14C:
+        architecture = "x86"
     else:
-        print("No interesting string indicators found.")
+        architecture = f"Unknown (0x{machine:X})"
+
+    sections = []
+    entropy_sections = []
+    imports = []
+    suspicious_apis = []
+
+    for section in pe.sections:
+        name = section.Name.decode(errors="ignore").rstrip("\x00")
+        entropy = calculate_entropy(section.get_data())
+        sections.append((name, entropy, section.SizeOfRawData))
+        if entropy >= 7.0:
+            entropy_sections.append(name)
+
+    if hasattr(pe, "DIRECTORY_ENTRY_IMPORT"):
+        for entry in pe.DIRECTORY_ENTRY_IMPORT:
+            dll = entry.dll.decode(errors="ignore")
+            dll_imports = []
+            for imp in entry.imports:
+                if imp.name:
+                    name = imp.name.decode(errors="ignore")
+                    dll_imports.append(name)
+                    if name in SUSPICIOUS_APIS:
+                        suspicious_apis.append((name, SUSPICIOUS_APIS[name], dll))
+                else:
+                    dll_imports.append(f"Ordinal {imp.ordinal}")
+            imports.append((dll, dll_imports))
+
+    result = {
+        "architecture": architecture,
+        "entry_point": f"0x{pe.OPTIONAL_HEADER.AddressOfEntryPoint:X}",
+        "image_base": f"0x{pe.OPTIONAL_HEADER.ImageBase:X}",
+        "sections": sections,
+        "imports": imports,
+        "suspicious_apis": suspicious_apis,
+        "high_entropy_sections": entropy_sections,
+    }
+    pe.close()
+    return result
+
+
+def risk_score(suspicious_apis, suspicious_strings, high_entropy_sections):
+    score = min(
+        min(len(suspicious_apis) * 10, 40)
+        + min(len(suspicious_strings) * 5, 30)
+        + min(len(high_entropy_sections) * 15, 30),
+        100,
+    )
+    if score >= 70:
+        level = "HIGH"
+    elif score >= 40:
+        level = "MEDIUM"
+    else:
+        level = "LOW"
+    return score, level
+
+
+def analyze(file_path, mode="full"):
+    path = Path(file_path)
+    if not path.is_file():
+        raise FileNotFoundError("File not found.")
+
+    mode = mode.lower()
+    output = []
+    md5 = sha1 = sha256 = None
+    strings = []
+    suspicious_strings = []
+    pe_data = None
+
+    output += [
+        "CYBERGUARD — STATIC MALWARE ANALYSIS",
+        "=" * 72,
+        f"Sample : {path.name}",
+        f"Size   : {path.stat().st_size:,} bytes",
+        "",
+    ]
+
+    if mode in ("full", "hash"):
+        md5, sha1, sha256 = calculate_hashes(path)
+        output += [
+            "HASH ANALYSIS",
+            "-" * 72,
+            f"MD5    : {md5}",
+            f"SHA1   : {sha1}",
+            f"SHA256 : {sha256}",
+            "",
+        ]
+
+    if mode in ("full", "strings", "risk"):
+        strings = extract_strings(path)
+        suspicious_strings = find_suspicious_strings(strings)
+
+    if mode in ("full", "strings"):
+        output += [
+            "STRING ANALYSIS",
+            "-" * 72,
+            f"Total printable strings : {len(strings):,}",
+            f"Suspicious indicators   : {len(suspicious_strings)}",
+            "",
+        ]
+        for s in suspicious_strings[:100]:
+            output.append(f"[!] {s}")
+        output.append("")
+
+    if mode in ("full", "pe", "api", "entropy", "risk"):
+        try:
+            pe_data = inspect_pe(path)
+        except pefile.PEFormatError:
+            output += ["PE ANALYSIS", "-" * 72, "Not a valid Windows PE file.", ""]
+            pe_data = None
+
+    if pe_data and mode in ("full", "pe"):
+        output += [
+            "PE ANALYSIS",
+            "-" * 72,
+            f"Architecture : {pe_data['architecture']}",
+            f"Entry Point  : {pe_data['entry_point']}",
+            f"Image Base   : {pe_data['image_base']}",
+            f"Sections     : {len(pe_data['sections'])}",
+            "",
+            "Sections:",
+        ]
+        for name, entropy, raw_size in pe_data["sections"]:
+            output.append(f"  {name:<10} Raw Size: {raw_size:>8,}  Entropy: {entropy:.2f}")
+        output.append("")
+
+    if pe_data and mode in ("full", "api"):
+        output += ["API DETECTION", "-" * 72]
+        if pe_data["suspicious_apis"]:
+            for name, category, dll in pe_data["suspicious_apis"]:
+                output.append(f"[!] {name}  |  {category}  |  {dll}")
+        else:
+            output.append("No predefined suspicious API indicators found.")
+        output.append("")
+
+    if pe_data and mode in ("full", "entropy"):
+        output += ["ENTROPY ANALYSIS", "-" * 72]
+        for name, entropy, _ in pe_data["sections"]:
+            marker = "  [!] HIGH ENTROPY" if entropy >= 7.0 else ""
+            output.append(f"{name:<10} Entropy: {entropy:.2f}{marker}")
+        output.append("")
+
+    if mode in ("full", "risk"):
+        apis = pe_data["suspicious_apis"] if pe_data else []
+        high_entropy = pe_data["high_entropy_sections"] if pe_data else []
+        score, level = risk_score(apis, suspicious_strings, high_entropy)
+        output += [
+            "RISK ASSESSMENT",
+            "-" * 72,
+            f"Risk Score : {score}/100",
+            f"Risk Level : {level}",
+            "",
+            "Indicators:",
+            f"  Suspicious APIs       : {len(apis)}",
+            f"  Suspicious strings    : {len(suspicious_strings)}",
+            f"  High-entropy sections : {len(high_entropy)}",
+            "",
+        ]
+
+    return "\n".join(output)
+
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) >= 2:
+        file_path = sys.argv[1]
+        mode = sys.argv[2] if len(sys.argv) >= 3 else "full"
+    else:
+        file_path = input("Enter the path of the file to analyze: ").strip()
+        mode = "full"
+
+    try:
+        print(analyze(file_path, mode))
+    except Exception as e:
+        print(f"ERROR: {e}")
